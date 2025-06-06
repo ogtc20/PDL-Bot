@@ -78,9 +78,110 @@ async def report_match(ctx, team_name: str, opponent_team_name: str, team_score:
                 writer.writeheader()  # Write header only if the file doesn't exist
             writer.writerow(match_result)  # Write the match result
 
-        await ctx.send(f"Match result reported successfully! The winner is {winner}!")
+        await ctx.send(f"Match result reported successfully!")
 
     except ValueError:
         await ctx.send("Invalid input. Please ensure scores are integers and all arguments are provided correctly.")
+
+@bot.command()
+async def view_matches(ctx):
+    file_exists = os.path.isfile("match-results.csv")
+    if not file_exists:
+        await ctx.send("No match results found. Please use !report_match to report a match.")
+        return
+
+    with open('match-results.csv', newline='', encoding='utf-8') as csvfile:
+        reader = csv.DictReader(csvfile)
+        rows = list(reader)
+        if not rows:
+            await ctx.send("No match results found. Please use !report_match to report a match.")
+            return
+        for row in rows:
+            await ctx.send(
+                f"{row['team_name']} vs {row['opponent_team_name']} | "
+                f"Score: {row['team_score']} - {row['opponent_score']} | "
+                f"Winner: {row['winner']}"
+            )
+
+@bot.command()
+async def view_standings(ctx):
+    file_exists = os.path.isfile("match-results.csv")
+    if not file_exists:
+        await ctx.send("No match results found. Please use !report_match to report a match.")
+        return
+    
+    standings = {}
+    with open('match-results.csv', newline='', encoding='utf-8') as csvfile:
+        reader = csv.DictReader(csvfile)
+        rows = list(reader)
+        for row in rows:
+            team = row['team_name']
+            opponent = row['opponent_team_name']
+            winner = row['winner']
+
+            if team not in standings:
+                standings[team] = {'wins': 0, 'losses': 0, 'points': 0}
+            if opponent not in standings:
+                standings[opponent] = {'wins': 0, 'losses': 0, 'points': 0}
+            
+            winner_points = 3
+            loser_points = 1
+            
+            if winner == team:
+                standings[team]['wins'] += 1
+                standings[team]['points'] += winner_points
+                standings[opponent]['losses'] += 1
+                standings[opponent]['points'] += loser_points
+
+            else:
+                standings[opponent]['wins'] += 1
+                standings[opponent]['points'] += winner_points
+                standings[team]['losses'] += 1
+                standings[team]['points'] += loser_points
+    
+    # Sort the standings by points in descending order
+    sorted_standings = sorted(standings.items(), key=lambda x: x[1]['points'], reverse=True)
+    await ctx.send("Standings:\n")
+    for team, stats in sorted_standings:
+        await ctx.send(f"{team}: {stats['wins']} Wins, {stats['losses']} Losses, {stats['points']} Points\n")
+
+@bot.command()
+async def show_rosters(ctx):
+    file_exists = os.path.isfile("rosters.csv")
+    if not file_exists:
+        await ctx.send("No rosters found.")
+        return
+    
+    with open('rosters.csv', newline='', encoding='utf-8') as csvfile:
+        reader = csv.DictReader(csvfile)
+        rosters = {}
+        for row in reader:
+            team_name = row['team_name']
+            pokemon_name = row['pokemon_name']
+            if team_name not in rosters:
+                rosters[team_name] = []
+            rosters[team_name].append(pokemon_name)
+        
+        response = "Rosters:\n"
+        for team, pokemons in rosters.items():
+            response += f"{team}: {', '.join(pokemons)}\n"
+        await ctx.send(response)
+
+@bot.command()
+async def show_roster(ctx, team_name: str):
+    file_exists = os.path.isfile("rosters.csv")
+    if not file_exists:
+        await ctx.send("No rosters found.")
+        return
+    
+    with open('rosters.csv', newline='', encoding='utf-8') as csvfile:
+        reader = csv.DictReader(csvfile)
+        found = False
+        for row in reader:
+            if row['team_name'].lower() == team_name.lower():
+                found = True
+                await ctx.send(f"{row['pokemon_name']}")
+        if not found:
+            await ctx.send(f"No roster found for team: {team_name}")
 
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
