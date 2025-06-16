@@ -40,10 +40,6 @@ async def on_message(message):
     await bot.process_commands(message)
 
 @bot.command()
-async def hello(ctx):
-    await ctx.send(f"Hello {ctx.author.mention}!")
-
-@bot.command()
 @commands.has_permissions(administrator=True)
 async def add_team(ctx, *, args: str):
     """Add a team to the database. Usage: !add_team Team Name"""
@@ -58,6 +54,8 @@ async def add_team(ctx, *, args: str):
         return
     
     budget = 180  # Initial points to spend on roster (can be adjusted based on draft rules)
+    team_name = team_name.title()
+    discord_user = discord_user.lower()
 
     if teams.find_one({
         "$or":[
@@ -87,6 +85,8 @@ async def add_pokemon(ctx, *, args: str):
         await ctx.send("Please provide the team name, Pokémon name, and point value, separated by a comma. Example: !add_pokemon Team Name, Pikachu, 20")
         return
     team_name, pokemon_name, pokemon_value = parts
+    team_name = team_name.title()
+    pokemon_name = pokemon_name.title()
         
     if not team_name or not pokemon_name or not pokemon_value:
         await ctx.send("Team name, Pokémon name, and point value cannot be empty.")
@@ -109,13 +109,18 @@ async def add_pokemon(ctx, *, args: str):
 
 @bot.command()
 @commands.has_permissions(administrator=True)
-async def add_match(ctx, *, args:str):
+async def schedule_match(ctx, *, args:str):
     parts = [part.strip() for part in args.split(',')]
     if len(parts) != 5:
         await ctx.send("Please provide 5 arguments separated by commas: week number, team name, discord_user, opponent team name, opponent discord_user")
         return
     
     week, team_name, discord_user, opponent_team_name, opponent_discord_user = parts
+    team_name = team_name.title()
+    opponent_team_name = opponent_team_name.title()
+    discord_user = discord_user.lower()
+    opponent_discord_user = opponent_discord_user.lower()
+
     match_result = {
         "week": week,
         "team_name": team_name,
@@ -143,19 +148,26 @@ async def show_matches(ctx, *, search_text: str):
         ]
     })
     searched_matches = list(searched_matches)
-    
+    searched_matches.sort(key=lambda x: (x['week'], x['team_name'], x['opponent_team_name']))
     
     if not searched_matches:
-        await ctx.send(f"Invalid search term: {search_text}. Please try again with a valid week number, team name, or opponent team name.")
+        await ctx.send(f"Invalid search term: '{search_text}'. Please try again with a valid week number, team name, or opponent team name.")
         return
     
+    table = [
+    "```markdown",
+    "| Week | Team                | Opponent             | Score |",
+    "|------|---------------------|----------------------|-------|"
+]
     for match in searched_matches:
-        match_info = (
-            f"**Week:** {match['week']}\n"
-            f"**Match:** {match['team_name']} vs {match['opponent_team_name']}\n"
-            f"**Score:** {match['team_score']} - {match['opponent_score']}\n"
-        )
-        await ctx.send(match_info)
+        if match['winner'] == "N/A":
+            table.append(f"| {match['week']:<4} | {match['team_name']:<19} | {match['opponent_team_name']:<20} | N/A   |")
+        elif match['winner'] == "DNP":
+            table.append(f"| {match['week']:<4} | {match['team_name']:<19} | {match['opponent_team_name']:<20} | DNP   |")
+        else:
+            table.append(f"| {match['week']:<4} | {match['team_name']:<19} | {match['opponent_team_name']:<20} | {match['team_score']} - {match['opponent_score']} |")
+    table.append("```")
+    await ctx.send("\n".join(table))
         
 @bot.command()
 async def report_match(ctx, *, args: str):
@@ -180,29 +192,86 @@ async def report_match(ctx, *, args: str):
         await ctx.send("You cannot report a match against the same team.")
         return
 
-    if not matches.find_one({
+    if team_score > opponent_score:
+        winner = team_name
+        loser = opponent_team_name
+    elif team_score < opponent_score:
+        winner = opponent_team_name
+        loser = team_name
+    else:
+        winner = "DNP"
+        loser = "DNP"
+    
+    if not teams.find_one({
         "$or": [
-            {"team_name": {"$regex": f"^{opponent_team_name}$", "$options": "i"}},
-            {"discord_user": {"$regex": f"^{opponent_team_name}$", "$options": "i"}}
+            {"team_name": {"$regex": f"^{team_name}$", "$options": "i"}},
+            {"discord_user": {"$regex": f"^{team_name}$", "$options": "i"}}
         ]
-    }):
-        await ctx.send(f"'{opponent_team_name}' does not exist as a team or user in this league. Please check for any typos and if the problem still persists, contact league administrator.")
+        }):
+        await ctx.send(f"Team or user '{team_name}' not found. Please check the spelling and try again.")
         return
 
-    winner = team_name if team_score > opponent_score else opponent_team_name
-    loser = opponent_team_name if team_score > opponent_score else team_name
-
-    match_result = {
-        "team_name": team_name,
-        "opponent_team_name": opponent_team_name,
-        "team_score": team_score,
-        "opponent_score": opponent_score,
-        "winner": winner,
-        "loser": loser,
-        "reported_by": ctx.author.name
-    }
-
-    matches.insert_one(match_result)
+        # Check if opponent exists
+    if not teams.find_one({
+            "$or": [
+                {"team_name": {"$regex": f"^{opponent_team_name}$", "$options": "i"}},
+                {"discord_user": {"$regex": f"^{opponent_team_name}$", "$options": "i"}}
+            ]
+        }):
+        await ctx.send(f"Team or user '{opponent_team_name}' not found. Please check the spelling and try again.")
+        return
+    
+    match = matches.update_one({
+        "$or": [
+            {
+                "$and": [
+                    {
+                        "$or": [
+                            {"team_name": {"$regex": f"^{team_name}$", "$options": "i"}},
+                            {"discord_user": {"$regex": f"^{team_name}$", "$options": "i"}}
+                        ]
+                    },
+                    {
+                        "$or": [
+                            {"opponent_team_name": {"$regex": f"^{opponent_team_name}$", "$options": "i"}},
+                            {"opponent_discord_user": {"$regex": f"^{opponent_team_name}$", "$options": "i"}}
+                        ]
+                    },
+                    {"winner": "N/A"}
+                ]
+            },
+            {
+                "$and": [
+                    {
+                        "$or": [
+                            {"team_name": {"$regex": f"^{opponent_team_name}$", "$options": "i"}},
+                            {"discord_user": {"$regex": f"^{opponent_team_name}$", "$options": "i"}}
+                        ]
+                    },
+                    {
+                        "$or": [
+                            {"opponent_team_name": {"$regex": f"^{team_name}$", "$options": "i"}},
+                            {"opponent_discord_user": {"$regex": f"^{team_name}$", "$options": "i"}}
+                        ]
+                    },
+                    {"winner": "N/A"}
+                ]
+            }
+        ]
+    },
+    {
+        "$set": {
+            "team_score": team_score,
+            "opponent_score": opponent_score,
+            "winner": winner,
+            "loser": loser,
+            "reported_by": ctx.author.name
+        }
+    })
+    
+    if match.modified_count == 0:
+        await ctx.send("Match not in schedule or is already reported. Please ensure the match is scheduled and has not been reported yet.") 
+        return
     await ctx.send(f"Match result reported successfully!")
 
 @bot.command()
@@ -225,7 +294,7 @@ async def show_standings(ctx):
 
         winner_points = 3
         loser_points = 1
-
+            
         if winner == team:
             standings[team]['wins'] += 1
             standings[team]['points'] += winner_points
@@ -236,20 +305,20 @@ async def show_standings(ctx):
             standings[opponent]['points'] += winner_points
             standings[team]['losses'] += 1
             standings[team]['points'] += loser_points
-        else:
+        elif winner == "DNP":
             standings[team]['DNP'] += 1
             standings[opponent]['DNP'] += 1
-
+        else:
+            pass
 
     sorted_standings = sorted(standings.items(), key=lambda x: x[1]['points'], reverse=True)
 
     # Build Markdown table
-    table = ["**Standings:**",
-             "```markdown",
-             "| Team                | Wins | Losses | Points |",
-             "|---------------------|------|--------|--------|"]
+    table = ["```markdown",
+            "| Team                | Wins | Losses | DNP | Points |",
+            "|---------------------|------|--------|-----|--------|"]
     for team, stats in sorted_standings:
-        table.append(f"| {team:<19} | {stats['wins']:^4} | {stats['losses']:^6} | {stats['points']:^6} |")
+        table.append(f"| {team:<19} | {stats['wins']:^4} | {stats['losses']:^6} | {stats['DNP']:^3} | {stats['points']:^6} |")
     table.append("```")
     await ctx.send("\n".join(table))
 
@@ -279,6 +348,20 @@ async def show_roster(ctx, *, team_name: str):
     await ctx.send(roster_message)
 
 @bot.command()
+async def check(ctx, *, team_name: str):
+    """Check if a user is registered in the league. Usage: !check_user Team Name"""
+    team = teams.find_one({
+        "$or": [
+            {"team_name": {"$regex": f"^{team_name.title()}$", "$options": "i"}},
+            {"discord_user": {"$regex": f"^{team_name.lower()}$", "$options": "i"}}
+        ]
+    })
+    if not team:
+        await ctx.send(f"There is no team titled: {team_name} in this league.")
+        return
+    await ctx.send(f"{team['team_name']} is {team['discord_user']}'s team in the league.")
+
+@bot.command()
 @commands.has_permissions(administrator=True)
 async def clear_all(ctx):
     """Clear all matches, rosters, and teams from the database."""
@@ -298,5 +381,7 @@ async def clear_roster(ctx, team_name: str):
         await ctx.send(f"{team_name}'s roster has been cleared.")
     else:
         await ctx.send(f"No team found with the name '{team_name}'.")
+
+
 
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
