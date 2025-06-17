@@ -85,8 +85,12 @@ async def add_pokemon(ctx, *, args: str):
         await ctx.send("Please provide the team name, Pokémon name, and point value, separated by a comma. Example: !add_pokemon Team Name, Pikachu, 20")
         return
     team_name, pokemon_name, pokemon_value = parts
-    team_name = team_name.title()
     pokemon_name = pokemon_name.title()
+    team_name = team_name.title()
+
+    if not pokemon_value.isdigit() or int(pokemon_value) < 0:
+        await ctx.send("Point value must be a positive number.")
+        return
         
     if not team_name or not pokemon_name or not pokemon_value:
         await ctx.send("Team name, Pokémon name, and point value cannot be empty.")
@@ -95,9 +99,6 @@ async def add_pokemon(ctx, *, args: str):
         "pokemon_name": pokemon_name,
         "point_value": int(pokemon_value) if pokemon_value.isdigit() else 0
     }
-    if team_name not in [team['team_name'] for team in teams.find()]:
-        await ctx.send(f"Team '{team_name}' does not exist. Please create the team first using !add_team.")
-        return
     teams.update_one(
         {"team_name": {"$regex": f"^{team_name}$", "$options": "i"}},
         {"$push": {"roster": roster_entry}})
@@ -105,6 +106,9 @@ async def add_pokemon(ctx, *, args: str):
         {"team_name": {"$regex": f"^{team_name}$", "$options": "i"}},
         {"$inc": {"budget": -int(pokemon_value)}}
     )
+    if team_name not in [team['team_name'] for team in teams.find()]:
+        await ctx.send(f"Team '{team_name}' does not exist. Please create the team first using !add_team.")
+        return
     await ctx.send(f"Added {pokemon_name} to {team_name}'s roster!")
 
 @bot.command()
@@ -136,8 +140,13 @@ async def schedule_match(ctx, *, args:str):
     matches.insert_one(match_result)
     await ctx.send(f"Match added to schedule successfully!")
 
+
 @bot.command()
 async def show_matches(ctx, *, search_text: str):
+    if search_text is None or search_text.strip() == "":
+        await ctx.send("Please provide a search term (week number, team name, or opponent team name).")
+        return
+        
     searched_matches = matches.find({
     "$or": [
         {"week": {"$regex": f"^{search_text}$", "$options": "i"}},
@@ -151,7 +160,7 @@ async def show_matches(ctx, *, search_text: str):
     searched_matches.sort(key=lambda x: (x['week'], x['team_name'], x['opponent_team_name']))
     
     if not searched_matches:
-        await ctx.send(f"Invalid search term: '{search_text}'. Please try again with a valid week number, team name, or opponent team name.")
+        await ctx.send(f"'{search_text}' not found. Please try again with a week number, team name, or opponent team name featured in the schedule.")
         return
     
     table = [
@@ -275,6 +284,25 @@ async def report_match(ctx, *, args: str):
     await ctx.send(f"Match result reported successfully!")
 
 @bot.command()
+async def show_teams(ctx):
+    results = list(teams.find())
+    if not results:
+        await ctx.send("No teams found in the league.")
+        return
+    table = ["```markdown",
+            "| Team                | Discord User        | Budget |",
+            "|---------------------|---------------------|--------|"]
+    for team in results:
+        team_name = team['team_name']
+        if len(team['team_name']) > 19:
+            short_team_name = team_name[:16] + "..." 
+            table.append(f"| {short_team_name:<19} | {team['discord_user']:<19} | {team['budget']:>6} |")
+        else:
+            table.append(f"| {team_name:<19} | {team['discord_user']:<19} | {team['budget']:>6} |")
+    table.append("```")
+    await ctx.send("\n".join(table))
+
+@bot.command()
 async def show_standings(ctx):
     results = list(matches.find())
     if not results:
@@ -340,10 +368,10 @@ async def show_roster(ctx, *, team_name: str):
         return
 
     # Build a Markdown-formatted roster
-    roster_lines = [f"** _{team['team_name']}_'s Roster** (User: {team['discord_user']})\n"]
+    roster_lines = [f"** {team['team_name']}'s Roster** (User: {team['discord_user']})"]
     for idx, entry in enumerate(roster, 1):
-        roster_lines.append(f"`{idx}.` **{entry['pokemon_name']}** (*Pts: {entry['point_value']}*)")
-    roster_lines.append(f"*Budget Remaining: {team['budget']} points*")
+        roster_lines.append(f"`{idx}.` {entry['pokemon_name']} (*Pts: {entry['point_value']}*)")
+    roster_lines.append(f"Budget Remaining: *{team['budget']} points*")
     roster_message = "\n".join(roster_lines)
     await ctx.send(roster_message)
 
