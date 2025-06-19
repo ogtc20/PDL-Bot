@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import os
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
+import sys
 
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
@@ -27,7 +28,8 @@ try:
     client.admin.command('ping')
     print("You are connected to MongoDB!")
 except Exception as e:
-    print(e)
+    print("Failed to connect to MongoDB:", e)
+    sys.exit(1) #1 stops the bot from running if MongoDB is not connected
 
 @bot.event
 async def on_ready():
@@ -97,8 +99,11 @@ async def add_pokemon(ctx, *, args: str):
         return
     roster_entry = {
         "pokemon_name": pokemon_name,
-        "point_value": int(pokemon_value) if pokemon_value.isdigit() else 0
+        "point_value": int(pokemon_value)
     }
+    if team_name not in [team['team_name'] for team in teams.find()]:
+        await ctx.send(f"Team '{team_name}' does not exist. Please create the team first using !add_team.")
+        return
     teams.update_one(
         {"team_name": {"$regex": f"^{team_name}$", "$options": "i"}},
         {"$push": {"roster": roster_entry}})
@@ -106,9 +111,6 @@ async def add_pokemon(ctx, *, args: str):
         {"team_name": {"$regex": f"^{team_name}$", "$options": "i"}},
         {"$inc": {"budget": -int(pokemon_value)}}
     )
-    if team_name not in [team['team_name'] for team in teams.find()]:
-        await ctx.send(f"Team '{team_name}' does not exist. Please create the team first using !add_team.")
-        return
     await ctx.send(f"Added {pokemon_name} to {team_name}'s roster!")
 
 @bot.command()
@@ -220,7 +222,7 @@ async def report_match(ctx, *, args: str):
         await ctx.send(f"Team or user '{team_name}' not found. Please check the spelling and try again.")
         return
 
-        # Check if opponent exists
+    # Check if opponent exists
     if not teams.find_one({
             "$or": [
                 {"team_name": {"$regex": f"^{opponent_team_name}$", "$options": "i"}},
@@ -410,6 +412,26 @@ async def clear_roster(ctx, team_name: str):
     else:
         await ctx.send(f"No team found with the name '{team_name}'.")
 
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def add_team_trial(ctx, team_name: str, member: discord.Member):
+    team_name = team_name.title()
+    discord_user_obj = {
+        "id": member.id,
+        "name": member.name,
+        "discriminator": member.discriminator,
+        "display_name": member.display_name
+    }
 
+    # Check for existing team or user as before...
+
+    team_entry = {
+        "team_name": team_name,
+        "discord_user": discord_user_obj,
+        "budget": 180,
+        "roster": []
+    }
+    teams.insert_one(team_entry)
+    await ctx.send(f"{member.mention} has added '{team_name}' to the league successfully!")
 
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
