@@ -183,7 +183,7 @@ async def show_matches(ctx, *, search_text: str):
 @bot.command()
 async def report_match(ctx, *, args: str):
     # Split arguments by comma and strip whitespace
-    parts = [part.strip() for part in args.split(', ')]
+    parts = [part.strip() for part in args.split(',')]
     if len(parts) != 4:
         await ctx.send("Please provide 4 arguments separated by commas: team_name, opponent_team_name, team_score, opponent_score")
         return
