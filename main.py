@@ -412,26 +412,4 @@ async def clear_roster(ctx, team_name: str):
     else:
         await ctx.send(f"No team found with the name '{team_name}'.")
 
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def add_team_trial(ctx, team_name: str, member: discord.Member):
-    team_name = team_name.title()
-    discord_user_obj = {
-        "id": member.id,
-        "name": member.name,
-        "discriminator": member.discriminator,
-        "display_name": member.display_name
-    }
-
-    # Check for existing team or user as before...
-
-    team_entry = {
-        "team_name": team_name,
-        "discord_user": discord_user_obj,
-        "budget": 180,
-        "roster": []
-    }
-    teams.insert_one(team_entry)
-    await ctx.send(f"{member.mention} has added '{team_name}' to the league successfully!")
-
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
