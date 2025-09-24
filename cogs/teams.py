@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 from db import teams
+import string
 
 class Teams(commands.Cog):
     def __init__(self, bot):
@@ -29,19 +30,19 @@ class Teams(commands.Cog):
     @commands.command()
     @commands.has_permissions(administrator=True)
     async def add_team(self, ctx, *, args: str):
-        """Add a team to the database. Usage: !add_team Team Name"""
+        """Add a team to the database. Usage: !add_team Team_Name, Discord_User"""
         parts = [part.strip() for part in args.split(',')]
         if len(parts) != 2:
-            await ctx.send("Please provide the team name and discord_user, separated by a comma. Example: !add_team Team Name, Discord Username")
+            await ctx.send("Please provide the Team_Name and Discord_User, separated by a comma; !add_team Team_Name, Discord_Username")
             return
         team_name, discord_user = parts
         
         if not team_name or not discord_user:
-            await ctx.send("Team name and Discord name cannot be empty.")
+            await ctx.send("Team_Name and Discord_Name cannot be empty.")
             return
         
-        budget = 180  # Initial points to spend on roster (can be adjusted based on draft rules)
-        team_name = team_name.title()
+        total_team_budget = 100  # Initial points to spend on roster (can be adjusted based on draft rules)
+        team_name = string.capwords(team_name)
         discord_user = discord_user.lower()
 
         if teams.find_one({
@@ -49,38 +50,38 @@ class Teams(commands.Cog):
                 {"team:name": {"regex": f"^{team_name}$", "$options": "i"}},
                 {"discord_user": {"$regex": f"^{discord_user}$", "$options": "i"}}]
         }):
-            await ctx.send(f"Team '{team_name}' or user '{discord_user}' already exists in the league.")
+            await ctx.send(f"Team '{team_name}' or User '{discord_user}' already exists in the league.")
             return
 
         team_entry = {
             "team_name": team_name,
             "discord_user": discord_user,
-            "budget": budget, 
+            "budget": total_team_budget, 
             "roster": []
         }
         teams.insert_one(team_entry)
-        await ctx.send(f"{discord_user} has added '{team_name}' to the league successfully!")
+        await ctx.send(f"{team_name} has been added to the league and will be managed by: \"{discord_user}\".")
 
     @commands.command()
     @commands.has_permissions(administrator=True)
     async def add_pokemon(self, ctx, *, args: str):
-        """Add a Pokémon to a team's roster. Usage: !add_pokemon Team Name, Pokemon Name, PointValue"""
+        """Add a Pokémon to a team's roster. Usage: !add_pokemon Team_Name, Pokemon_Name, Point_Value"""
         
         # Split arguments by comma, allowing for spaces in team names
         parts = [part.strip() for part in args.split(',', 2)]
         if len(parts) != 3:
-            await ctx.send("Please provide the team name, Pokémon name, and point value, separated by a comma. Example: !add_pokemon Team Name, Pikachu, 20")
+            await ctx.send("Please provide the Team_Name, Pokemon_Name, and Point_Value, separated by a comma; !add_pokemon Team_Name, Pokemon_Name, Point_Value")
             return
         team_name, pokemon_name, pokemon_value = parts
-        pokemon_name = pokemon_name.title()
-        team_name = team_name.title()
+        pokemon_name = string.capwords(pokemon_name)
+        team_name = string.capwords(team_name)
 
         if not pokemon_value.isdigit() or int(pokemon_value) < 0:
-            await ctx.send("Point value must be a positive number.")
+            await ctx.send("Point_Value must be a positive number.")
             return
             
         if not team_name or not pokemon_name or not pokemon_value:
-            await ctx.send("Team name, Pokémon name, and point value cannot be empty.")
+            await ctx.send("Team_Name, Pokemon_Name, and Point_Value cannot be empty.")
             return
         roster_entry = {
             "pokemon_name": pokemon_name,
@@ -101,7 +102,7 @@ class Teams(commands.Cog):
     @commands.command()
     async def show_roster(self, ctx, *, team_name: str):
         """Show the roster for a specific team. Usage: !show_roster Team Name"""
-        team_name = team_name.title()
+        team_name = string.capwords(team_name)
         team = teams.find_one({"team_name": {"$regex": f"^{team_name}$", "$options": "i"}})
         if not team:
             await ctx.send(f"No team found with the name '{team_name}'.")
