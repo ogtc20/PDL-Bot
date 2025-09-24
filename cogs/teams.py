@@ -7,7 +7,7 @@ class Teams(commands.Cog):
         self.bot = bot
 
     @commands.command()
-    async def show_teams(self, ctx):
+    async def show_all_teams(self, ctx):
         results = list(teams.find())
         if not results:
             await ctx.send("No teams found in the league.")
@@ -99,21 +99,28 @@ class Teams(commands.Cog):
         await ctx.send(f"Added {pokemon_name} to {team_name}'s roster!")
 
     @commands.command()
-    async def show_teams(self, ctx):
-        results = list(teams.find())
-        if not results:
-            await ctx.send("No teams found in the league.")
+    async def show_roster(self, ctx, *, team_name: str):
+        """Show the roster for a specific team. Usage: !show_roster Team Name"""
+        team_name = team_name.title()
+        team = teams.find_one({"team_name": {"$regex": f"^{team_name}$", "$options": "i"}})
+        if not team:
+            await ctx.send(f"No team found with the name '{team_name}'.")
+            return
+        roster = team.get('roster', [])
+        if not roster:
+            await ctx.send(f"{team_name} has no players in their roster.")
             return
         table = ["```markdown",
-                "| Team                | Discord User        | Budget |",
-                "|---------------------|---------------------|--------|"]
-        for team in results:
-            team_name = team['team_name']
-            if len(team['team_name']) > 19:
-                short_team_name = team_name[:16] + "..." 
-                table.append(f"| {short_team_name:<19} | {team['discord_user']:<19} | {team['budget']:>6} |")
+                "| Pokémon            | Point Value |",
+                "|--------------------|-------------|"]
+        for entry in roster:
+            pokemon_name = entry['pokemon_name']
+            point_value = entry['point_value']
+            if len(pokemon_name) > 18:
+                short_pokemon_name = pokemon_name[:15] + "..."
+                table.append(f"| {short_pokemon_name:<18} | {point_value:>11} |")
             else:
-                table.append(f"| {team_name:<19} | {team['discord_user']:<19} | {team['budget']:>6} |")
+                table.append(f"| {pokemon_name:<18} | {point_value:>11} |")
         table.append("```")
         await ctx.send("\n".join(table))
 
@@ -129,6 +136,12 @@ class Teams(commands.Cog):
             await ctx.send(f"{team_name}'s roster has been cleared.")
         else:
             await ctx.send(f"No team found with the name '{team_name}'.")
+
+    @commands.command()
+    @commands.has_permissions(administrator=True)
+    async def delete_all_teams(self, ctx):
+        teams.delete_many({})
+        await ctx.send("All teams have been deleted.")
 
 async def setup(bot):
     await bot.add_cog(Teams(bot))
