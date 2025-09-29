@@ -57,11 +57,13 @@ class Teams(commands.Cog):
             "team_name": team_name,
             "discord_user": discord_user,
             "budget": total_team_budget, 
-            "roster": []
+            "roster": [],
+            "matches": []
         }
         teams.insert_one(team_entry)
         await ctx.send(f"{team_name} has been added to the league and will be managed by: \"{discord_user}\".")
 
+    
     @commands.command()
     @commands.has_permissions(administrator=True)
     async def add_pokemon(self, ctx, *, args: str):
