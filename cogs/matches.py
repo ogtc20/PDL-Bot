@@ -120,6 +120,8 @@ class Matches(commands.Cog):
         
         team_name, opponent_team_name, team_score_str, opponent_score_str = parts
         # Convert scores to integers    
+        team_name = string.capwords(team_name)
+        opponent_team_name = string.capwords(opponent_team_name)
         team_score = int(team_score_str)
         opponent_score = int(opponent_score_str) 
         
