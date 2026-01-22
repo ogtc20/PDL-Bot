@@ -1,5 +1,6 @@
 from discord.ext import commands
 from db import teams, matches
+import string
 
 class Matches(commands.Cog):
     def __init__(self, bot):
@@ -51,8 +52,8 @@ class Matches(commands.Cog):
             return
         
         week, team_name, discord_user, opponent_team_name, opponent_discord_user = parts
-        team_name = team_name.title()
-        opponent_team_name = opponent_team_name.title()
+        team_name = string.capwords(team_name)
+        opponent_team_name = string.capwords(opponent_team_name)
         discord_user = discord_user.lower()
         opponent_discord_user = opponent_discord_user.lower()
 
@@ -227,7 +228,7 @@ class Matches(commands.Cog):
             opponent = row['opponent_team_name']
             winner = row['winner']
 
-            if team not in standings:
+            if team not in standings:  
                 standings[team] = {'wins': 0, 'losses': 0, 'DNP': 0, 'points': 0}
             if opponent not in standings:
                 standings[opponent] = {'wins': 0, 'losses': 0, 'DNP': 0, 'points': 0}

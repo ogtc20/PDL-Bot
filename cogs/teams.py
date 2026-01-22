@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 from db import teams
+import string
 
 class Teams(commands.Cog):
     def __init__(self, bot):
@@ -25,6 +26,34 @@ class Teams(commands.Cog):
         table.append("```")
         await ctx.send("\n".join(table))
     
+    @commands.command()
+    async def show_roster(self, ctx, *, search_text: str):
+        if search_text is None or search_text.strip() == "":
+            await ctx.send("Please provide a valid search term (team name or username).")
+            return
+            
+        searched_team = teams.find_one({
+            "$or":[
+                {"team_name": {"$regex": f"^{search_text}$", "$options": "i"}},
+                {"discord_user": {"$regex": f"^{search_text}$", "$options": "i"}}
+            ]
+        })
+        
+        if not searched_team:
+            await ctx.send(f"'{search_text}' not found. Please try again with a team name or username featured in the league.")
+            return
+        
+        table = [
+            "```markdown",
+            "| Pokemon     |Points|",
+            "|-------------|------|"
+        ]
+        for pokemon in searched_team['roster']:
+            pokemon_name = pokemon['pokemon_name']
+            point_value = pokemon['point_value']
+            table.append(f"| {pokemon_name:<11} | {str(point_value):<4} |")
+        table.append("```")
+        await ctx.send("\n".join(table))
 
     @commands.command()
     @commands.has_permissions(administrator=True)
@@ -32,7 +61,7 @@ class Teams(commands.Cog):
         """Add a team to the database. Usage: !add_team Team Name"""
         parts = [part.strip() for part in args.split(',')]
         if len(parts) != 2:
-            await ctx.send("Please provide the team name and discord_user, separated by a comma. Example: !add_team Team Name, Discord Username")
+            await ctx.send("Please provide the team name and discord_user, separated by a comma. Example: !add_team Team Name, @Discord Username")
             return
         team_name, discord_user = parts
         
@@ -40,8 +69,8 @@ class Teams(commands.Cog):
             await ctx.send("Team name and Discord name cannot be empty.")
             return
         
-        budget = 180  # Initial points to spend on roster (can be adjusted based on draft rules)
-        team_name = team_name.title()
+        budget = 110  # Initial points to spend on roster (can be adjusted based on draft rules)
+        team_name = string.capwords(team_name)
         discord_user = discord_user.lower()
 
         if teams.find_one({
@@ -72,8 +101,8 @@ class Teams(commands.Cog):
             await ctx.send("Please provide the team name, Pokémon name, and point value, separated by a comma. Example: !add_pokemon Team Name, Pikachu, 20")
             return
         team_name, pokemon_name, pokemon_value = parts
-        pokemon_name = pokemon_name.title()
-        team_name = team_name.title()
+        pokemon_name = string.capwords(pokemon_name)
+        team_name = string.capwords(team_name)
 
         if not pokemon_value.isdigit() or int(pokemon_value) < 0:
             await ctx.send("Point value must be a positive number.")
@@ -97,26 +126,7 @@ class Teams(commands.Cog):
             {"$inc": {"budget": -int(pokemon_value)}}
         )
         await ctx.send(f"Added {pokemon_name} to {team_name}'s roster!")
-
-    @commands.command()
-    async def show_teams(self, ctx):
-        results = list(teams.find())
-        if not results:
-            await ctx.send("No teams found in the league.")
-            return
-        table = ["```markdown",
-                "| Team                | Discord User        | Budget |",
-                "|---------------------|---------------------|--------|"]
-        for team in results:
-            team_name = team['team_name']
-            if len(team['team_name']) > 19:
-                short_team_name = team_name[:16] + "..." 
-                table.append(f"| {short_team_name:<19} | {team['discord_user']:<19} | {team['budget']:>6} |")
-            else:
-                table.append(f"| {team_name:<19} | {team['discord_user']:<19} | {team['budget']:>6} |")
-        table.append("```")
-        await ctx.send("\n".join(table))
-
+    
     @commands.command()
     @commands.has_permissions(administrator=True)
     async def clear_roster(self, ctx, team_name: str):
