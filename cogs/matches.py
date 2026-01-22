@@ -7,6 +7,35 @@ class Matches(commands.Cog):
         self.bot = bot
 
     @commands.command()
+    @commands.has_permissions(administrator=True)
+    async def schedule_match(self, ctx, *, args:str):
+        parts = [part.strip() for part in args.split(',')]
+        if len(parts) != 5:
+            await ctx.send("Please provide 5 arguments separated by commas: week number, team name, discord_user, opponent team name, opponent discord_user")
+            return
+        
+        week, team_name, discord_user, opponent_team_name, opponent_discord_user = parts
+        team_name = team_name.title()
+        opponent_team_name = opponent_team_name.title()
+        discord_user = discord_user.lower()
+        opponent_discord_user = opponent_discord_user.lower()
+
+        match_result = {
+            "week": week,
+            "team_name": team_name,
+            "discord_user": discord_user,
+            "opponent_team_name": opponent_team_name,
+            "opponent_discord_user": opponent_discord_user,
+            "team_score": 0,
+            "opponent_score": 0,
+            "winner": "N/A",
+            "loser": "N/A",
+            "reported_by": "N/A"
+        }
+        matches.insert_one(match_result)
+        await ctx.send(f"Match added to schedule successfully!")
+
+    @commands.command()
     async def show_matches(self, ctx, *, search_text: str):
         if search_text is None or search_text.strip() == "":
             await ctx.send("Please provide a search term (week number, team name, or opponent team name).")
@@ -264,6 +293,12 @@ class Matches(commands.Cog):
             table.append(f"| {team:<19} | {stats['wins']:^4} | {stats['losses']:^6} | {stats['DNP']:^3} | {stats['points']:^6} |")
         table.append("```")
         await ctx.send("\n".join(table))
+
+    @commands.command()
+    @commands.has_permissions(administrator=True)
+    async def delete_all_matches(self, ctx):
+        matches.delete_many({})
+        await ctx.send("All match records have been deleted.")
 
 async def setup(bot):
     await bot.add_cog(Matches(bot))
