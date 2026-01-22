@@ -15,8 +15,8 @@ class Matches(commands.Cog):
             return
         
         week, team_name, discord_user, opponent_team_name, opponent_discord_user = parts
-        team_name = team_name.title()
-        opponent_team_name = opponent_team_name.title()
+        team_name = string.capwords(team_name)
+        opponent_team_name = string.capwords(opponent_team_name)
         discord_user = discord_user.lower()
         opponent_discord_user = opponent_discord_user.lower()
 
