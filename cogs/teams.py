@@ -14,15 +14,15 @@ class Teams(commands.Cog):
             await ctx.send("No teams found in the league.")
             return
         table = ["```markdown",
-                "| Team                | Discord User        | Budget |",
-                "|---------------------|---------------------|--------|"]
+                "| Team                       | Discord User        | Budget |",
+                "|----------------------------|---------------------|--------|"]
         for team in results:
             team_name = team['team_name']
-            if len(team['team_name']) > 19:
-                short_team_name = team_name[:16] + "..." 
-                table.append(f"| {short_team_name:<19} | {team['discord_user']:<19} | {team['budget']:>6} |")
+            if len(team['team_name']) > 26:
+                short_team_name = team_name[:23] + "..." 
+                table.append(f"| {short_team_name:<26} | {team['discord_user']:<19} | {team['budget']:>6} |")
             else:
-                table.append(f"| {team_name:<19} | {team['discord_user']:<19} | {team['budget']:>6} |")
+                table.append(f"| {team_name:<26} | {team['discord_user']:<19} | {team['budget']:>6} |")
         table.append("```")
         await ctx.send("\n".join(table))
     
@@ -61,7 +61,7 @@ class Teams(commands.Cog):
         """Add a team to the database. Usage: !add_team Team_Name, Discord_User"""
         parts = [part.strip() for part in args.split(',')]
         if len(parts) != 2:
-            await ctx.send("Please provide the team name and discord_user, separated by a comma. Example: !add_team Team Name, @Discord Username")
+            await ctx.send("Please provide the team name and discord_user, separated by a comma. Example: !add_team Team Name, discord_username")
             return
         team_name, discord_user = parts
         
@@ -69,7 +69,7 @@ class Teams(commands.Cog):
             await ctx.send("Team_Name and Discord_Name cannot be empty.")
             return
         
-        team_budget = 110  # Initial points to spend on roster (can be adjusted based on draft rules)
+        team_budget = 115  # Initial points to spend on roster (can be adjusted based on draft rules)
         team_name = string.capwords(team_name)
         discord_user = discord_user.lower()
 
