@@ -59,16 +59,16 @@ class Matches(commands.Cog):
         
         table = [
         "```markdown",
-        "| Week | Team                | Opponent             | Score |",
-        "|------|---------------------|----------------------|-------|"
+        "| Week | Team 1                     | Team 2                     | Score |",
+        "|------|----------------------------|----------------------------|-------|"
     ]
         for match in searched_matches:
             if match['winner'] == "N/A":
-                table.append(f"| {match['week']:<4} | {match['team_name']:<19} | {match['opponent_team_name']:<20} | N/A   |")
+                table.append(f"| {match['week']:<4} | {match['team_name']:<26} | {match['opponent_team_name']:<26} | N/A   |")
             elif match['winner'] == "DNP":
-                table.append(f"| {match['week']:<4} | {match['team_name']:<19} | {match['opponent_team_name']:<20} | DNP   |")
+                table.append(f"| {match['week']:<4} | {match['team_name']:<26} | {match['opponent_team_name']:<26} | DNP   |")
             else:
-                table.append(f"| {match['week']:<4} | {match['team_name']:<19} | {match['opponent_team_name']:<20} | {match['team_score']} - {match['opponent_score']} |")
+                table.append(f"| {match['week']:<4} | {match['team_name']:<26} | {match['opponent_team_name']:<26} | {match['team_score']} - {match['opponent_score']} |")
         table.append("```")
         await ctx.send("\n".join(table))
     
@@ -100,44 +100,6 @@ class Matches(commands.Cog):
         }
         matches.insert_one(match_result)
         await ctx.send(f"Match added to schedule successfully!")
-
-
-    @commands.command()
-    async def show_matches(self, ctx, *, search_text: str):
-        if search_text is None or search_text.strip() == "":
-            await ctx.send("Please provide a search term (week number, team name, or opponent team name).")
-            return
-            
-        searched_matches = matches.find({
-        "$or": [
-            {"week": {"$regex": f"^{search_text}$", "$options": "i"}},
-            {"team_name": {"$regex": f"^{search_text}$", "$options": "i"}},
-            {"opponent_team_name": {"$regex": f"^{search_text}$", "$options": "i"}},
-            {"discord_user": {"$regex": f"^{search_text}$", "$options": "i"}},
-            {"opponent_discord_user": {"$regex": f"^{search_text}$", "$options": "i"}}
-            ]
-        })
-        searched_matches = list(searched_matches)
-        searched_matches.sort(key=lambda x: (x['week'], x['team_name'], x['opponent_team_name']))
-        
-        if not searched_matches:
-            await ctx.send(f"'{search_text}' not found. Please try again with a week number, team name, or opponent team name featured in the schedule.")
-            return
-        
-        table = [
-        "```markdown",
-        "| Week | Team                | Opponent             | Score |",
-        "|------|---------------------|----------------------|-------|"
-    ]
-        for match in searched_matches:
-            if match['winner'] == "N/A":
-                table.append(f"| {match['week']:<4} | {match['team_name']:<19} | {match['opponent_team_name']:<20} | N/A   |")
-            elif match['winner'] == "DNP":
-                table.append(f"| {match['week']:<4} | {match['team_name']:<19} | {match['opponent_team_name']:<20} | DNP   |")
-            else:
-                table.append(f"| {match['week']:<4} | {match['team_name']:<19} | {match['opponent_team_name']:<20} | {match['team_score']} - {match['opponent_score']} |")
-        table.append("```")
-        await ctx.send("\n".join(table))
 
     @commands.command()
     async def report_match(self, ctx, *, args: str):
@@ -287,10 +249,10 @@ class Matches(commands.Cog):
 
         # Build Markdown table
         table = ["```markdown",
-                "| Team                | Wins | Losses | DNP | Points |",
-                "|---------------------|------|--------|-----|--------|"]
+                "| Team                       | Wins | Losses | DNP | Points |",
+                "|----------------------------|------|--------|-----|--------|"]
         for team, stats in sorted_standings:
-            table.append(f"| {team:<19} | {stats['wins']:^4} | {stats['losses']:^6} | {stats['DNP']:^3} | {stats['points']:^6} |")
+            table.append(f"| {team:<26} | {stats['wins']:^4} | {stats['losses']:^6} | {stats['DNP']:^3} | {stats['points']:^6} |")
         table.append("```")
         await ctx.send("\n".join(table))
 
