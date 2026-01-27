@@ -45,13 +45,13 @@ class Teams(commands.Cog):
         
         table = [
             "```markdown",
-            "| Pokemon     |Points|",
-            "|-------------|------|"
+            "| Pokemon               |Points|",
+            "|-----------------------|------|"
         ]
         for pokemon in searched_team['roster']:
             pokemon_name = pokemon['pokemon_name']
             point_value = pokemon['point_value']
-            table.append(f"| {pokemon_name:<11} | {str(point_value):<4} |")
+            table.append(f"| {pokemon_name:<21} | {str(point_value):<4} |")
         table.append("```")
         await ctx.send("\n".join(table))
 
